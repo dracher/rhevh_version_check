@@ -1,5 +1,12 @@
 competent_need_to_check:
-  - libvirt, 6.5.z
-  - openssl
+  -
+    - libvirt
+    - el6_5
+  -
+    - openssl
+    - el6_5
+  -
+    - qemu-kvm-rhev
+    - el6_5
 
-release_date: 2014-05-29
+release_date: 2014-06-12
