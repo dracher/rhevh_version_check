@@ -6,6 +6,7 @@ require 'pp'
 require 'json'
 require 'getoptlong'
 require 'date'
+require 'erb'
 
 module QueryAPIs
   PACKAGE_HTML = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/package/show/%s'"
@@ -14,7 +15,6 @@ module QueryAPIs
 end
 
 class MultiIO
-  include QueryAPIs
   def initialize(*targets)
     @targets = targets
   end
@@ -61,6 +61,8 @@ class QueryErrata
     details.each do |x|
       if x.text =~ /\d{4}-[a-zA-Z]{3}-\d{2}/
         release_date = Date.parse(x.text)
+      elsif x.text =~ /ASAP/
+        release_date = 'ASAP'
       end
     end
     yield release_date
@@ -103,7 +105,6 @@ class QueryErrata
         else
           errata.push r_date.split('T')[0]
         end
-
       end
     end
     res
@@ -219,3 +220,9 @@ ISO_PATH: the absolute path of the iso
   end
   PP.pp competent
 end
+
+__END__
+<h2>Competent Check Result for <%= fin_data[:iso_name] %></h2>
+<% fin_data[:results].each do |competent_name| %>
+<%= competent_name %>
+<% end %>
