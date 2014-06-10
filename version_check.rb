@@ -1,4 +1,5 @@
 require 'yaml'
+require 'yaml/store'
 require 'logger'
 require 'tempfile'
 require 'nokogiri'
@@ -7,6 +8,7 @@ require 'json'
 require 'getoptlong'
 require 'date'
 require 'erb'
+require 'net/smtp'
 
 module QueryAPIs
   PACKAGE_HTML = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/package/show/%s'"
@@ -43,8 +45,18 @@ class QueryErrata
 
   def self.query_for_raw_html(package_name)
     cmd = QueryAPIs::PACKAGE_HTML % package_name
-    #TODO Error for connection error
+    $log.info cmd
+    #TODO handle connection error
     r_val = `#{cmd}`
+
+    if r_val.include? 'Authorization Required'
+      warn_msg = "You need to use 'kinit id@REDHAT.COM to get a vaild ticket'"
+      $log.error '!' * warn_msg.length
+      $log.error warn_msg
+      $log.error '!' * warn_msg.length
+      exit -1
+    end
+
     if block_given?
       yield r_val
     else
@@ -161,9 +173,36 @@ class PreJobs
 end
 
 
+class ParseData
+  def self.run(fin_data)
+    fin_data = fin_data
+    tmp = ERB.new(DATA.read)
+    self.send_res_mail tmp.result(binding)
+  end
+
+  def self.send_res_mail(m_body)
+    message = <<MESSAGE_END
+From: Private Person <me@fromdomain.com>
+To: A Test User <yaniwang@redhat.com>
+MIME-Version: 1.0
+Content-type: text/html
+Subject: SMTP e-mail test
+
+#{m_body}
+MESSAGE_END
+
+    Net::SMTP.start('smtp.corp.redhat.com') do |smtp|
+      smtp.send_message message, 'me@fromdomain.com', 'yaniwang@redhat.com'
+    end
+  end
+end
 # ===================== main() =========================================================================================
 
 if __FILE__ == $0
+  # t = YAML.load File.open './tmp.yaml'
+  #
+  # ParseData.run t["avar"]
+  # exit(0)
 
   # if Process.uid != 0
   #   $log.warn 'Must run scipt with `root` privilege'
@@ -215,14 +254,96 @@ ISO_PATH: the absolute path of the iso
 
   # raise "file #{ARGV[0]} does not exist" unless File.exist? ARGV[0]
   competent, release_date = PreJobs.get_competent_version
+  $log.info "competent need to be checked are #{competent}"
+  $log.info "release_date is #{release_date}"
   competent.each do |x|
     x.push(QueryErrata.run x[1], x[0])
   end
-  PP.pp competent
+
+  $log.info 'Sending result to mail groups'
+  ParseData.run competent
 end
 
 __END__
-<h2>Competent Check Result for <%= fin_data[:iso_name] %></h2>
-<% fin_data[:results].each do |competent_name| %>
-<%= competent_name %>
+<html>
+<head>
+<style>
+table, td, th {
+  border-collapse: collapse;
+  border: 1px solid black;
+  padding: 5px;
+}
+.success {
+  background-color: #dff0d8;
+}
+.active {
+  background-color: #f5f5f5;
+}
+.cp_name {
+  text-decoration: underline;
+  color: RoyalBlue;
+}
+</style>
+</head>
+<body>
+
+
+<% fin_data.each do |competent| %>
+    <table class="table table-bordered">
+      <tr class='active'>
+        <th>Name</th>
+        <th>Query For</th>
+        <th>Version</th>
+        <th>Release Date</th>
+      </tr>
+      <tr class='success'>
+        <td><span class="cp_name"><%= competent[0].upcase %></span></td>
+
+        <td><%= competent[1] %></td>
+
+        <td><%= competent[2] %></td>
+
+        <td></td>
+      </tr>
+      <tr class='active'>
+        <th colspan="4">Active Errata</th>
+      </tr>
+      <% competent[3][:active_errata].each do |errata| %>
+        <% if errata[2].include? competent[2]
+          @tr_class = 'success'
+          else
+          @tr_class = nil
+          end
+        %>
+
+          <tr class="<%= @tr_class %>">
+            <td><a href="https://errata.devel.redhat.com/advisory/<%= errata[0] %>"><%= errata[0] %></a></td>
+            <td><%= errata[1] %></td>
+            <td><%= errata[2] %></td>
+            <td><%= errata[5].to_s %></td>
+          </tr>
+
+      <% end %>
+      <tr class='active'>
+        <th colspan="4">Shipped Errata</th>
+      </tr>
+      <% competent[3][:shipped_errata].each do |errata| %>
+        <% if errata[3].include? competent[2]
+          @tr_class = 'success'
+          else
+          @tr_class = nil
+          end
+        %>
+          <tr class="<%= @tr_class %>">
+            <td><a href="https://errata.devel.redhat.com/advisory/<%= errata[0] %>"><%= errata[0] %></a></td>
+            <td><%= errata[1] %></td>
+            <td><%= errata[3] %></td>
+            <td><%= errata[5].to_s %></td>
+          </tr>
+      <% end %>
+    </table>
+    <br>
 <% end %>
+
+</body>
+</html>
