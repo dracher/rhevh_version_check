@@ -14,6 +14,7 @@ module QueryAPIs
   PACKAGE_HTML = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/package/show/%s'"
   ADVISORY_JSON = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/advisory/%s.json'"
   ADVISORY_HTML = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/advisory/%s'"
+  RELEASE_JSON = "curl -k -sS --user ':' --negotiate 'https://errata.devel.redhat.com/release/%s.json'"
 end
 
 class MultiIO
@@ -80,6 +81,12 @@ class QueryErrata
     yield release_date
   end
 
+  def self.get_release_date_f_release(release_id)
+    cmd = QueryAPIs::RELEASE_JSON % release_id
+    r_val = `#{cmd}`
+    yield JSON.parse(r_val)['ship_date']
+  end
+
   def self.parse_raw_html(html, release_name)
     results = {:active_errata => [], :shipped_errata => []}
     page = Nokogiri::HTML(html)
@@ -112,8 +119,10 @@ class QueryErrata
         r_url = QueryAPIs::ADVISORY_JSON % errata[0]
         r_val = `#{r_url}`
         r_date = JSON.parse(r_val)['timestamps']['release_date']
+        release_id = JSON.parse(r_val)['release']['id']
         if r_date.nil?
-          self.get_release_date_f_html(errata[0]) {|x| errata.push x}
+          self.get_release_date_f_release(release_id) {|x| errata.push x}
+          # self.get_release_date_f_html(errata[0]) {|x| errata.push x}
         else
           errata.push r_date.split('T')[0]
         end
@@ -182,17 +191,17 @@ class ParseData
 
   def self.send_res_mail(m_body)
     message = <<MESSAGE_END
-From: Private Person <me@fromdomain.com>
-To: A Test User <yaniwang@redhat.com>
+From: John Doe <jd@someplace.com>
+To: rhevh-qe <rhevh-qe@redhat.com>
 MIME-Version: 1.0
 Content-type: text/html
-Subject: SMTP e-mail test
+Subject: rhev-hypervisor6-6.5-20140606.0.iso - Main package version check
 
 #{m_body}
 MESSAGE_END
 
     Net::SMTP.start('smtp.corp.redhat.com') do |smtp|
-      smtp.send_message message, 'me@fromdomain.com', 'yaniwang@redhat.com'
+      smtp.send_message message, 'john-doe@someplace.com', 'rhevh-qe@redhat.com'
     end
   end
 end
@@ -303,7 +312,7 @@ table, td, th {
 
         <td><%= competent[2] %></td>
 
-        <td></td>
+        <td>2014-06-12</td>
       </tr>
       <tr class='active'>
         <th colspan="4">Active Errata</th>
