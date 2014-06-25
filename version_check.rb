@@ -195,7 +195,7 @@ From: John Doe <jd@someplace.com>
 To: rhevh-qe <rhevh-qe@redhat.com>
 MIME-Version: 1.0
 Content-type: text/html
-Subject: rhev-hypervisor6-6.5-20140606.0.iso - Main package version check
+Subject: #{iso_name} - Main package version check
 
 #{m_body}
 MESSAGE_END
@@ -208,10 +208,6 @@ end
 # ===================== main() =========================================================================================
 
 if __FILE__ == $0
-  # t = YAML.load File.open './tmp.yaml'
-  #
-  # ParseData.run t["avar"]
-  # exit(0)
 
   # if Process.uid != 0
   #   $log.warn 'Must run scipt with `root` privilege'

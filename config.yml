@@ -2,11 +2,27 @@ competent_need_to_check:
   -
     - libvirt
     - el6_5
-  -
-    - openssl
-    - el6_5
+
   -
     - qemu-kvm-rhev
     - el6_5
 
+  -
+    - device-mapper
+    - x86_64
+
+  -
+    - dracut
+    - el6_5
+
+  -
+    - glusterfs
+    - el6_5
+
+  -
+    - vdsm
+    - el6
+
 release_date: 2014-06-12
+
+# TODO notifaction target: rhevh-qe@redhat.com
